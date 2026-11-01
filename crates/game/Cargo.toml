@@ -1,0 +1,16 @@
+[package]
+name = "game"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = { workspace = true, features = ["tonemapping_luts", "zstd_rust"] }
+
+jam8 = { path = "../jam8", version = "0.1.0" }
+
+sys_audio = { path = "../../systems/audio", version = "0.1.0" }
+sys_asset = { path = "../../systems/asset", version = "0.1.0" }
+
+[features]
+default = []
+dev = ["jam8/dev", "bevy/dev"]

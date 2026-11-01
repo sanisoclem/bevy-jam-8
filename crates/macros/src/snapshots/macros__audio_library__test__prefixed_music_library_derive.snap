@@ -1,0 +1,37 @@
+---
+source: crates/macros/src/audio_library.rs
+expression: formatted
+---
+impl crate::AudioLibrary for GameMusic {
+    fn load_all(
+        asset_server: &bevy::asset::AssetServer,
+        guard: utils::assets::AssetBarrierGuard,
+    ) -> bevy::platform::collections::HashMap<Self, crate::AudioDef> {
+        let mut retval = bevy::platform::collections::HashMap::new();
+        retval
+            .insert(
+                GameMusic::Menu,
+                crate::AudioDef::Looped(
+                    asset_server
+                        .load_builder()
+                        .with_guard(guard.clone())
+                        .load("menu.ogg"),
+                ),
+            );
+        retval
+            .insert(
+                GameMusic::Battle,
+                crate::AudioDef::IntroLooped {
+                    intro: asset_server
+                        .load_builder()
+                        .with_guard(guard.clone())
+                        .load("battle_intro.ogg"),
+                    main: asset_server
+                        .load_builder()
+                        .with_guard(guard.clone())
+                        .load("battle.ogg"),
+                },
+            );
+        retval
+    }
+}

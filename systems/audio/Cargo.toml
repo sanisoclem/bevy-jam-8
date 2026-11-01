@@ -1,0 +1,13 @@
+[package]
+name = "sys_audio"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = { workspace = true, features = ["default_app", "audio"] }
+rodio.workspace = true
+fastrand.workspace = true
+
+utils = { path = "../../crates/utils", version = "0.1.0" }
+macros = { path = "../../crates/macros", version = "0.1.0" }
+sys_asset = { path = "../asset", version = "0.1.0" }

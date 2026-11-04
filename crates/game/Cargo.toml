@@ -4,13 +4,23 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { workspace = true, features = ["tonemapping_luts", "zstd_rust"] }
+bevy = { workspace = true, features = [
+  "3d",
+  "ui",
+  "tonemapping_luts",
+  "zstd_rust",
+] }
+ron.workspace = true
+serde.workspace = true
 
-jam8 = { path = "../jam8", version = "0.1.0" }
+jam8 ={ path = "../jam8", version = "0.1.0" }
 
+sys_anim = { path = "../../systems/anim", version = "0.1.0" }
 sys_audio = { path = "../../systems/audio", version = "0.1.0" }
 sys_asset = { path = "../../systems/asset", version = "0.1.0" }
+sys_cam = { path = "../../systems/cam", version = "0.1.0" }
+sys_style = { path = "../../systems/style", version = "0.1.0" }
 
 [features]
 default = []
-dev = ["jam8/dev", "bevy/dev"]
+dev = ["bevy/dev"]

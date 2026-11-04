@@ -11,6 +11,8 @@ use utils::{
   easing::EasingGoal,
 };
 
+use crate::clock::{Clocked, Cue, Held, TrackClock};
+
 pub struct AudioPlugin<L: AudioLibrary, C: AudioChannelLayout> {
   phantom: PhantomData<fn() -> (L, C)>,
 }
@@ -26,7 +28,7 @@ impl<L: AudioLibrary, C: AudioChannelLayout> Plugin for AudioPlugin<L, C> {
   fn build(&self, app: &mut App) {
     app
       .add_plugins(SysAssetPlugin::<AudioLibraryResource<L, C>>::default())
-      .add_audio_source::<ProcessedAudio>()
+      .add_audio_source::<TrackAudio>()
       .add_systems(
         Update,
         (
@@ -61,26 +63,27 @@ pub enum AudioDef {
 impl AudioDef {
   pub fn try_into_processed_audio(
     &self,
-    asset_server: &AssetServer,
     audio_assets: &Assets<AudioSource>,
-  ) -> Option<Handle<ProcessedAudio>> {
+  ) -> Option<ProcessedAudio> {
     match self {
       AudioDef::Once(s) => {
         if let Some(ss) = audio_assets.get(s) {
-          let processed = asset_server.add(ProcessedAudio {
+          let processed = ProcessedAudio {
             sources: vec![ss.clone()],
             process: |sources| Box::new(sources.first().unwrap().decoder()),
-          });
+            lead_in_secs: 0.0,
+          };
 
           return Some(processed);
         }
       }
       AudioDef::Looped(s) => {
         if let Some(ss) = audio_assets.get(s) {
-          let processed = asset_server.add(ProcessedAudio {
+          let processed = ProcessedAudio {
             sources: vec![ss.clone()],
             process: |sources| Box::new(sources.first().unwrap().decoder().repeat_infinite()),
-          });
+            lead_in_secs: 0.0,
+          };
 
           return Some(processed);
         }
@@ -89,8 +92,9 @@ impl AudioDef {
         if let Some(is) = audio_assets.get(intro)
           && let Some(ms) = audio_assets.get(main)
         {
-          let processed = asset_server.add(ProcessedAudio {
+          let processed = ProcessedAudio {
             sources: vec![is.clone(), ms.clone()],
+            lead_in_secs: duration_secs(is),
             process: |sources| {
               let copy: Vec<_> = sources
                 .iter()
@@ -105,7 +109,7 @@ impl AudioDef {
                 .collect();
               Box::new(from_iter(copy))
             },
-          });
+          };
           return Some(processed);
         }
       }
@@ -115,32 +119,99 @@ impl AudioDef {
   }
 }
 
+fn duration_secs(source: &AudioSource) -> f64 {
+  let decoder = source.decoder();
+  let samples_per_sec =
+    f64::from(decoder.channels().get()) * f64::from(decoder.sample_rate().get());
+  decoder.count() as f64 / samples_per_sec
+}
+
+#[derive(Component, Debug)]
+pub struct PlayingTrack<L: AudioLibrary>(pub L);
+
 #[derive(Component)]
 pub struct AudioController<C: AudioChannelLayout> {
   channel: C,
   volume: f32,
   current_volume_cmd: Option<EasingGoal>,
+  cued_fade: Option<CuedFade>,
   despawn_on_stop: bool,
   despawn_on_zero_volume: bool,
   speed: f32,
 }
 
-#[derive(Asset, TypePath, Clone)]
+struct CuedFade {
+  cue: Cue,
+  fade: EasingGoal,
+}
+
+impl<C: AudioChannelLayout> AudioController<C> {
+  fn new(channel: C, volume: f32) -> Self {
+    Self {
+      channel,
+      volume,
+      current_volume_cmd: None,
+      cued_fade: None,
+      despawn_on_stop: true,
+      despawn_on_zero_volume: true,
+      speed: 1.0,
+    }
+  }
+
+  fn fade_now(&mut self, fade: EasingGoal) {
+    self.cued_fade = None;
+    self.current_volume_cmd = Some(fade);
+  }
+
+  fn fade_on(&mut self, cue: Option<Cue>, fade: EasingGoal) {
+    match cue {
+      Some(cue) => self.cued_fade = Some(CuedFade { cue, fade }),
+      None => self.fade_now(fade),
+    }
+  }
+
+  fn start_cued_fade(&mut self) {
+    if self.cued_fade.as_ref().is_some_and(|x| x.cue.passed()) {
+      self.current_volume_cmd = self.cued_fade.take().map(|x| x.fade);
+    }
+  }
+
+  fn is_settled(&self) -> bool {
+    self.current_volume_cmd.is_none() && self.cued_fade.is_none()
+  }
+}
+
+#[derive(Clone)]
 pub struct ProcessedAudio {
   pub sources: Vec<AudioSource>,
   pub process: fn(sources: &Vec<AudioSource>) -> Box<dyn Source + Sync + Send>,
+  pub lead_in_secs: f64,
 }
 
-impl Decodable for ProcessedAudio {
+#[derive(Asset, TypePath)]
+pub struct TrackAudio {
+  audio: ProcessedAudio,
+  clock: TrackClock,
+  start: Option<Cue>,
+}
+
+impl Decodable for TrackAudio {
   type Decoder = Box<dyn Source + Sync + Send>;
   fn decoder(&self) -> Self::Decoder {
-    (self.process)(&self.sources)
+    let clocked = Clocked::new(
+      (self.audio.process)(&self.audio.sources),
+      self.clock.clone(),
+    );
+    match &self.start {
+      Some(cue) => Box::new(Held::new(clocked, cue.clone())),
+      None => Box::new(clocked),
+    }
   }
 }
 
 pub struct AudioLibraryResource<T, C> {
   definitions: HashMap<T, AudioDef>,
-  processed: Option<HashMap<T, Handle<ProcessedAudio>>>,
+  processed: Option<HashMap<T, ProcessedAudio>>,
   channels: HashMap<C, AudioChannelSettings>,
 }
 
@@ -173,13 +244,34 @@ where
 pub enum AudioCommand<L, C> {
   StopAllInChannel(C),
   ReplaceAllAndFadeInto(L, C),
-  InsertOnce(L, C),
+  ReplaceAllOnPhrase(L, C, Crossfade),
+  InsertOnce(L, C, Speed),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Crossfade {
+  pub phrase_secs: f32,
+  pub fade_secs: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Speed {
+  Exact,
+  Varied,
+}
+
+impl Speed {
+  fn factor(self) -> f32 {
+    match self {
+      Speed::Exact => 1.0,
+      Speed::Varied => fastrand::f32() * 0.1 + 0.9,
+    }
+  }
 }
 
 fn process_assets<L, C>(
   _trigger: On<AssetLoaded<AudioLibraryResource<L, C>>>,
   mut audio_lib_bundle: ResMut<AssetBundle<AudioLibraryResource<L, C>>>,
-  asset_server: Res<AssetServer>,
   audio_assets: Res<Assets<AudioSource>>,
 ) where
   L: AudioLibrary,
@@ -190,7 +282,7 @@ fn process_assets<L, C>(
   };
   let mut h = HashMap::new();
   for (k, v) in audio_lib.definitions.iter() {
-    if let Some(p) = v.try_into_processed_audio(&asset_server, &audio_assets) {
+    if let Some(p) = v.try_into_processed_audio(&audio_assets) {
       h.insert(*k, p);
     }
   }
@@ -200,8 +292,9 @@ fn process_assets<L, C>(
 pub fn process_audio_commands<L, C>(
   evt: On<AudioCommand<L, C>>,
   mut commands: Commands,
-  mut qry: Query<&mut AudioController<C>>,
+  mut qry: Query<(&mut AudioController<C>, &TrackClock)>,
   audio_lib_bundle: Res<AssetBundle<AudioLibraryResource<L, C>>>,
+  asset_server: Res<AssetServer>,
 ) where
   L: AudioLibrary,
   C: AudioChannelLayout,
@@ -215,51 +308,110 @@ pub fn process_audio_commands<L, C>(
 
   match evt.event() {
     AudioCommand::StopAllInChannel(channel) => {
-      for mut ctl in qry.iter_mut() {
+      for (mut ctl, _) in qry.iter_mut() {
         if &ctl.channel != channel {
           continue;
         }
-        ctl.current_volume_cmd = Some(EasingGoal::Instant(0.0));
+        ctl.fade_now(EasingGoal::Instant(0.0));
       }
     }
     AudioCommand::ReplaceAllAndFadeInto(to_play, channel) => {
-      for mut ctl in qry.iter_mut() {
+      for (mut ctl, _) in qry.iter_mut() {
         if &ctl.channel != channel {
           continue;
         }
-        ctl.current_volume_cmd = Some(EasingGoal::fade(ctl.volume, 0.0, 3.0));
+        let fade = EasingGoal::fade(ctl.volume, 0.0, 3.0);
+        ctl.fade_now(fade);
       }
-      let Some(handle) = lib.get(to_play) else {
+      let Some(audio) = lib.get(to_play) else {
         return;
       };
-
-      commands
-        .spawn(AudioPlayer(handle.clone()))
-        .insert(AudioController {
-          channel: *channel,
-          volume: 0.1,
-          current_volume_cmd: Some(EasingGoal::fade(0.1, 1.0, 3.0)),
-          despawn_on_stop: true,
-          despawn_on_zero_volume: true,
-          speed: 1.0,
-        });
+      let fading_in = AudioController {
+        current_volume_cmd: Some(EasingGoal::fade(0.1, 1.0, 3.0)),
+        ..AudioController::new(*channel, 0.1)
+      };
+      spawn_track(
+        &mut commands,
+        &asset_server,
+        audio,
+        *to_play,
+        fading_in,
+        None,
+      );
     }
-    AudioCommand::InsertOnce(to_play, channel) => {
-      let Some(handle) = lib.get(to_play) else {
+    AudioCommand::ReplaceAllOnPhrase(to_play, channel, crossfade) => {
+      let Some(audio) = lib.get(to_play) else {
         return;
       };
-      commands
-        .spawn(AudioPlayer(handle.clone()))
-        .insert(AudioController {
-          channel: *channel,
-          volume: 1.0,
-          current_volume_cmd: None,
-          despawn_on_stop: true,
-          despawn_on_zero_volume: true,
-          speed: fastrand::f32() * 0.1 + 0.9,
-        });
+      let cue = loudest_clock(&qry, *channel)
+        .map(|x| Cue::on_next_phrase(x, audio.lead_in_secs, f64::from(crossfade.phrase_secs)));
+      for (mut ctl, _) in qry.iter_mut() {
+        if &ctl.channel != channel {
+          continue;
+        }
+        let fade = EasingGoal::ease(ctl.volume, 0.0, crossfade.fade_secs, EaseFunction::SineIn);
+        ctl.fade_on(cue.clone(), fade);
+      }
+      let mut fading_in = AudioController::new(*channel, 0.0);
+      fading_in.fade_on(
+        cue.clone(),
+        EasingGoal::ease(0.0, 1.0, crossfade.fade_secs, EaseFunction::SineOut),
+      );
+      spawn_track(
+        &mut commands,
+        &asset_server,
+        audio,
+        *to_play,
+        fading_in,
+        cue,
+      );
+    }
+    AudioCommand::InsertOnce(to_play, channel, speed) => {
+      let Some(audio) = lib.get(to_play) else {
+        return;
+      };
+      let controller = AudioController {
+        speed: speed.factor(),
+        ..AudioController::new(*channel, 1.0)
+      };
+      spawn_track(
+        &mut commands,
+        &asset_server,
+        audio,
+        *to_play,
+        controller,
+        None,
+      );
     }
   };
+}
+
+fn loudest_clock<C: AudioChannelLayout>(
+  tracks: &Query<(&mut AudioController<C>, &TrackClock)>,
+  channel: C,
+) -> Option<TrackClock> {
+  tracks
+    .iter()
+    .filter(|(x, _)| x.channel == channel)
+    .max_by(|(a, _), (b, _)| a.volume.total_cmp(&b.volume))
+    .map(|(_, x)| x.clone())
+}
+
+fn spawn_track<L: AudioLibrary, C: AudioChannelLayout>(
+  commands: &mut Commands,
+  asset_server: &AssetServer,
+  audio: &ProcessedAudio,
+  track: L,
+  controller: AudioController<C>,
+  start: Option<Cue>,
+) {
+  let clock = TrackClock::default();
+  let handle = asset_server.add(TrackAudio {
+    audio: audio.clone(),
+    clock: clock.clone(),
+    start,
+  });
+  commands.spawn((AudioPlayer(handle), PlayingTrack(track), controller, clock));
 }
 
 pub fn update_channel_volume<L, C>(
@@ -290,6 +442,7 @@ where
   C: AudioChannelLayout,
 {
   for mut ctl in qry.iter_mut() {
+    ctl.start_cued_fade();
     let Some(goal) = &mut ctl.current_volume_cmd else {
       continue;
     };
@@ -323,7 +476,7 @@ pub fn update_sink_volumes<L, C>(
     sink.set_speed(ctl.speed);
 
     if (sink.empty() && ctl.despawn_on_stop)
-      || (sink.volume().to_linear() <= 0.01 && ctl.despawn_on_zero_volume)
+      || (sink.volume().to_linear() <= 0.01 && ctl.despawn_on_zero_volume && ctl.is_settled())
     {
       cmd.entity(e).despawn();
     }

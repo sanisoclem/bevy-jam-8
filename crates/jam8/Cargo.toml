@@ -4,11 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { workspace = true, features = ["2d", "ui"] }
-
-sys_audio = { path = "../../systems/audio", version = "0.1.0" }
-sys_cam = { path = "../../systems/cam", version = "0.1.0" }
-
-[features]
-default = []
-dev = ["bevy/dev"]
+bevy.workspace = true

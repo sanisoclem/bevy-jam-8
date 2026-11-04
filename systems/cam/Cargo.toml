@@ -4,4 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { workspace = true, features = ["2d"] }
+bevy = { workspace = true, features = ["3d", "bevy_camera_controller", "free_camera"] }
+serde.workspace = true

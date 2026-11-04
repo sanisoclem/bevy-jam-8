@@ -98,6 +98,7 @@ jobs:
           wasm-bindgen --out-name jam8 \
           --out-dir wasm/target \
           --target web target/wasm32-unknown-unknown/wasm-release/bevy-jam-8.wasm
+          cp -r assets wasm/assets
       - name: Zip release
         uses: vimtor/action-zip@v1.1
         with:

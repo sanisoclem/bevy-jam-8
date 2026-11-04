@@ -1,0 +1,234 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "hand-built lathe"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Cauldron",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Cauldron",
+      "mesh": 0
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Cauldron",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "material": 0,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 2,
+            "NORMAL": 3
+          },
+          "material": 0,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 4,
+            "NORMAL": 5
+          },
+          "material": 0,
+          "mode": 4
+        },
+        {
+          "attributes": {
+            "POSITION": 6,
+            "NORMAL": 7
+          },
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "Iron",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.045,
+          0.042,
+          0.045,
+          1
+        ],
+        "metallicFactor": 0.15,
+        "roughnessFactor": 0.6
+      }
+    },
+    {
+      "name": "Interior",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.36,
+          0.35,
+          0.37,
+          1
+        ],
+        "metallicFactor": 0.05,
+        "roughnessFactor": 0.8
+      }
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 16704,
+      "type": "VEC3",
+      "min": [
+        -0.79625,
+        0.3,
+        -0.79625
+      ],
+      "max": [
+        0.79625,
+        1.0262499999999999,
+        0.79625
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 16704,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 576,
+      "type": "VEC3",
+      "min": [
+        -0.5819041288037236,
+        -0.023287321641631123,
+        -0.6642459111190991
+      ],
+      "max": [
+        0.5819041288037237,
+        0.4195884467907729,
+        0.3584712458271523
+      ]
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 576,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 4224,
+      "type": "VEC3",
+      "min": [
+        -0.975,
+        0.645,
+        -0.045
+      ],
+      "max": [
+        0.975,
+        0.905,
+        0.045
+      ]
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 4224,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 11712,
+      "type": "VEC3",
+      "min": [
+        -0.75,
+        0.4,
+        -0.75
+      ],
+      "max": [
+        0.75,
+        1.0262499999999999,
+        0.75
+      ]
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5126,
+      "count": 11712,
+      "type": "VEC3"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 200448,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 200448,
+      "byteLength": 200448,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 400896,
+      "byteLength": 6912,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 407808,
+      "byteLength": 6912,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 414720,
+      "byteLength": 50688,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 465408,
+      "byteLength": 50688,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 516096,
+      "byteLength": 140544,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 656640,
+      "byteLength": 140544,
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "cauldron.bin",
+      "byteLength": 797184
+    }
+  ]
+}

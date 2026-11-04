@@ -11,15 +11,47 @@ command = ["cargo", "test", "--all"]
 need_stdout = true
 
 [jobs.run]
-command = [
-    "cargo", "run", "--features=dev"
-]
+command = ["cargo", "run", "--features=dev"]
 need_stdout = true
 allow_warnings = true
 background = false
 on_change_strategy = "kill_then_restart"
 
+# point to central target path (need to point this to ./target if running without central cache)
+[jobs.web]
+command = [
+  "sh",
+  "-c",
+  """
+set -e
+RUSTFLAGS=--cfg=web_sys_unstable_apis cargo build --profile wasm-release --target wasm32-unknown-unknown
+.tools/bin/wasm-bindgen --out-name jam8 --out-dir wasm/target --target web \
+  ~/.cache/cargo-target/wasm32-unknown-unknown/wasm-release/bevy-jam-8.wasm
+ln -sfn ../assets wasm/assets
+""",
+]
+need_stdout = true
+allow_warnings = true
+
+[jobs.web-serve]
+command = [
+  "miniserve",
+  "wasm",
+  "--index",
+  "index.html",
+  "--port",
+  "8080",
+  "--header",
+  "Cache-Control: no-store",
+]
+need_stdout = true
+allow_warnings = true
+background = false
+default_watch = false
+
 [keybindings]
 c = "job:clippy"
-r = "job:run" 
+e = "job:web"
+r = "job:run"
+s = "job:web-serve"
 t = "job:test"

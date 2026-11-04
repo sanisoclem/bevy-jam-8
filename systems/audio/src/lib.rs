@@ -1,8 +1,10 @@
 use bevy::{platform::collections::HashMap, prelude::*};
 use macros::AudioLibrary;
 
+mod clock;
 mod engine;
 
+pub use clock::TrackClock;
 pub use engine::*;
 
 pub struct SysAudioPlugin;
@@ -20,7 +22,7 @@ pub type GameAudioAssets = AudioLibraryResource<GameAudioLibrary, GameAudioChann
 pub enum GameAudioLibrary {
   #[looped("menu.ogg")]
   Menu,
-  #[intro_looped("audio/intro-lofi.ogg", "audio/loop-lofi.ogg")]
+  #[intro_looped("audio/game_intro.ogg", "audio/game_loop.ogg")]
   Lofi,
   #[once("audio/POWERUP-A9DDF1B8730ECF3C.ogg")]
   ButtonEffect,

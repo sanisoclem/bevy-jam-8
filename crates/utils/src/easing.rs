@@ -13,9 +13,13 @@ pub struct EasingStep {
 
 impl EasingGoal {
   pub fn fade(from: f32, to: f32, duration_secs: f32) -> Self {
+    Self::ease(from, to, duration_secs, EaseFunction::Linear)
+  }
+
+  pub fn ease(from: f32, to: f32, duration_secs: f32, function: EaseFunction) -> Self {
     EasingGoal::Fade(
       Timer::from_seconds(duration_secs, TimerMode::Once),
-      EasingCurve::new(from, to, EaseFunction::Linear),
+      EasingCurve::new(from, to, function),
     )
   }
 

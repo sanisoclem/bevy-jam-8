@@ -1,0 +1,46 @@
+(
+    bars: 36,
+    secs_per_bar: 4.0,
+    intensity: [
+        // Intro
+        (bar: 0.0, level: 0.0),
+        (bar: 4.0, level: 0.0),
+        // buildup
+        (bar: 4.0, level: 0.02),
+        (bar: 12.0, level: 0.14),
+        // arpeggio
+        (bar: 12.0, level: 0.85),
+        (bar: 16.0, level: 0.9),
+        // calma
+        (bar: 16.0, level: 0.06),
+        (bar: 20.0, level: 0.03),
+        // second buildup
+        (bar: 20.0, level: 0.06),
+        (bar: 24.0, level: 0.32),
+        // cello
+        (bar: 24.0, level: 1.0),
+        (bar: 28.0, level: 1.0),
+        // cooldown
+        (bar: 28.0, level: 0.3),
+        (bar: 32.0, level: 0.04),
+        // outro
+        (bar: 32.0, level: 0.02),
+        (bar: 36.0, level: 0.0),
+    ],
+    accent_strikes: [
+      23.9375,
+      26.125,
+      26.25,
+      26.375,
+      26.5,
+      26.625,
+      26.75,
+      26.875
+    ],
+    glow: [
+        (bar: 4.0, level: 0.0),
+        (bar: 12.0, level: 1.0),
+        (bar: 32.0, level: 1.0),
+        (bar: 36.0, level: 0.0),
+    ],
+)

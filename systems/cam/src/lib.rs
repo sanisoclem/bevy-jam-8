@@ -3,48 +3,44 @@ use bevy::{
   post_process::bloom::Bloom,
   prelude::*,
 };
+use std::f32::consts::FRAC_PI_3;
+
+mod look;
+mod orbit;
+mod walk;
+
+pub use look::LookAroundCamera;
+pub use orbit::OrbitCamera;
+pub use walk::{CameraPose, WalkCamera};
 
 pub struct SysCamPlugin;
 
 impl Plugin for SysCamPlugin {
   fn build(&self, app: &mut App) {
     app
-      .add_systems(Startup, setup_camera)
-      .add_systems(FixedUpdate, update_camera);
+      .add_plugins((look::look_plugin, orbit::orbit_plugin, walk::walk_plugin))
+      .add_systems(Startup, setup_camera);
   }
 }
 
 #[derive(Component, Debug)]
 pub struct PlayerCamera;
 
-#[derive(Component, Debug)]
-pub struct CameraTarget;
-
 fn setup_camera(mut cmd: Commands) {
   cmd.spawn((
-    Camera2d,
+    Camera3d::default(),
     Camera {
       clear_color: ClearColorConfig::Custom(Color::BLACK),
       ..default()
     },
+    Projection::Perspective(PerspectiveProjection {
+      fov: FRAC_PI_3,
+      ..default()
+    }),
     Transform::default(),
     Tonemapping::TonyMcMapface,
     Bloom::default(),
-    DebandDither::Enabled,
+    DebandDither::Disabled,
     PlayerCamera,
   ));
-}
-
-const CAMERA_DECAY_RATE: f32 = 2.;
-fn update_camera(
-  mut camera: Single<&mut Transform, (With<Camera2d>, Without<CameraTarget>)>,
-  target: Single<&Transform, (With<CameraTarget>, Without<Camera2d>)>,
-  time: Res<Time>,
-) {
-  let Vec3 { x, y, .. } = target.translation;
-  let direction = Vec3::new(x, y, camera.translation.z);
-
-  camera
-    .translation
-    .smooth_nudge(&direction, CAMERA_DECAY_RATE, time.delta_secs());
 }

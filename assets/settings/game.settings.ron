@@ -1,0 +1,36 @@
+(
+    screen_style: HandDrawn((hatch_lines: 180.0)),
+    sky: (
+        weather: Storm,
+        star_lines: 360.0, // 270, 360
+        haze_visibility: 130.0,
+        lightning_brightness: 1500.0,
+    ),
+    fire: (
+        flare_light: 0.9,
+    ),
+    snow: (
+        flake_count: 24000,
+    ),
+    menu: (
+        menu_pose: (eye: (0.0, 2.0, 5.4), target: (0.0, 1.15, 0.0)),
+        cauldron_pose: (eye: (0.0, 2.55, 1.75), target: (0.0, 0.45, 0.0)),
+        orbit_rate: 0.09,
+        orbit_start_degrees: 110.0,
+        music_delay_secs: 3.0,
+        music_phrase_secs: 16.0,
+        music_crossfade_secs: 4.0,
+    ),
+    conductor: (
+        output_lag_secs: 0.03,
+        notes: (decay_secs: 0.3, vibrato_depth: 0.12),
+        leg_instruments: ("Rhodes", "Lead", "Cello"),
+        quiet_snow: 0.5,
+        quietest_glow: 0.35,
+        strike_flare: 0.3,
+        strike_boost: 0.25,
+        loudest_warp_limit: 2.0,
+        focus_blur: 0.0045,
+        focus_shake: 0.0012,
+    ),
+)

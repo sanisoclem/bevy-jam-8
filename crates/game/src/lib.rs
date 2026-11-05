@@ -11,6 +11,7 @@ use bevy::{
   prelude::*,
 };
 use jam8::prelude::*;
+use sys_anim::SysAnimPlugin;
 use sys_audio::SysAudioPlugin;
 use sys_cam::{PlayerCamera, SysCamPlugin};
 use sys_style::{Lens, SysStylePlugin, Unstyled, UnstyledLight};
@@ -43,6 +44,7 @@ impl Plugin for GamePlugin {
       )
       .add_plugins((
         Jam8Plugin,
+        SysAnimPlugin,
         SysAudioPlugin,
         SysStylePlugin,
         SysCamPlugin,
@@ -77,9 +79,11 @@ fn on_card_added(added: On<Add<Card>>, mut commands: Commands) {
   commands.entity(added.entity).insert(Unstyled);
 }
 
+mod caption;
 mod conductor;
 #[cfg(feature = "dev")]
 pub mod dev;
+mod director;
 pub mod gyms;
 pub mod objects;
 mod ron_asset;

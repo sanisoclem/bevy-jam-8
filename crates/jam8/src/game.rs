@@ -16,7 +16,6 @@ pub struct GameBlueprint {
 
 #[derive(Clone, Debug)]
 pub struct AlchemyLevel {
-  pub turns: usize,
   pub visible_turns: usize,
   pub player: PlayerCardHand,
   pub opponent: OpponentCardHand,
@@ -28,19 +27,20 @@ pub struct Round {
   pub level: usize,
   pub target: AlchemyItem,
   pub turn: usize,
-  pub turns: usize,
   pub outcome: Option<RoundOutcome>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RoundOutcome {
   TargetReached,
-  OutOfTurns,
+  OutOfCards,
+  Exploded,
 }
 
 #[derive(Component, Clone, Debug, Default)]
 pub struct PlayerCardHand {
   pub cards: Vec<AlchemyItem>,
+  pub deck: Vec<AlchemyItem>,
 }
 
 #[derive(Component, Clone, Debug, Default)]

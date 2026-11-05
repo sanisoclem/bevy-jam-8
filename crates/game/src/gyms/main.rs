@@ -22,6 +22,8 @@ impl Plugin for MainGymPlugin {
       menu::menu_plugin,
       game::game_plugin,
       crate::table::table_plugin,
+      crate::caption::caption_plugin,
+      crate::director::director_plugin,
     ));
   }
 }
@@ -128,7 +130,6 @@ mod menu {
     ui::Pressed,
     ui_widgets::{Activate, Button},
   };
-  use jam8::prelude::{GameBlueprint, GameStarted, StartGame};
   use std::time::Duration;
   use sys_audio::{GameAudioChannels, GameAudioCommand, GameAudioLibrary, Speed};
   use sys_cam::OrbitCamera;
@@ -143,14 +144,7 @@ mod menu {
         (objects::spawner, main_menu_setup),
       )
       .add_systems(Update, update_button_colors)
-      .add_systems(
-        Update,
-        (
-          leave_menu.run_if(on_message::<GameStarted>),
-          play_menu_music,
-        )
-          .run_if(in_state(GameState::Menu)),
-      )
+      .add_systems(Update, play_menu_music.run_if(in_state(GameState::Menu)))
       .add_observer(on_menu_button_activated);
   }
 
@@ -198,10 +192,6 @@ mod menu {
     ));
   }
 
-  fn leave_menu(mut game_state: ResMut<NextState<GameState>>) {
-    game_state.set(GameState::Playing);
-  }
-
   fn main_menu_setup(settings: Res<MenuSettings>, mut commands: Commands) {
     commands.trigger(OrbitCamera {
       pose: settings.menu_pose,
@@ -245,9 +235,8 @@ mod menu {
   fn on_menu_button_activated(
     activate: On<Activate>,
     actions: Query<&MenuButtonAction>,
-    blueprint: Res<GameBlueprint>,
     mut commands: Commands,
-    mut start_game: MessageWriter<StartGame>,
+    mut game_state: ResMut<NextState<GameState>>,
   ) {
     let Ok(action) = actions.get(activate.entity) else {
       return;
@@ -259,9 +248,7 @@ mod menu {
     ));
     match action {
       MenuButtonAction::Play => {
-        start_game.write(StartGame {
-          blueprint: blueprint.clone(),
-        });
+        game_state.set(GameState::Playing);
       }
     }
   }
@@ -273,6 +260,7 @@ mod game {
   use sys_cam::WalkCamera;
 
   use super::{GameState, MenuSettings};
+  use crate::director::Director;
 
   pub fn game_plugin(app: &mut App) {
     app.add_systems(OnEnter(GameState::Playing), game_setup);
@@ -284,6 +272,11 @@ mod game {
       DespawnOnExit(GameState::Playing),
       Transform::default(),
       Visibility::default(),
+    ));
+    commands.spawn((
+      Name::new("Director"),
+      Director::default(),
+      DespawnOnExit(GameState::Playing),
     ));
     commands.trigger(WalkCamera {
       to: settings.cauldron_pose,

@@ -2,7 +2,7 @@ use crate::{
   game::{
     CauldronCard, Game, GameBlueprint, OpponentCardHand, PlayerCardHand, Round, RoundOutcome,
   },
-  rules::AlchemyItem,
+  rules::{AlchemyEffect, AlchemyItem},
 };
 use bevy::prelude::*;
 
@@ -18,6 +18,7 @@ impl Plugin for Jam8Plugin {
       .add_message::<GameStarted>()
       .add_message::<RoundDealt>()
       .add_message::<CardPlayed>()
+      .add_message::<TurnEnded>()
       .add_message::<RoundEnded>()
       .add_systems(
         Update,
@@ -68,6 +69,12 @@ pub struct CardPlayed {
   pub hand: Entity,
   pub card: usize, // index in hand
   pub cauldron_item: AlchemyItem,
+  pub drawn: Option<AlchemyItem>,
+}
+
+#[derive(Message, Debug)]
+pub struct TurnEnded {
+  pub game: Entity,
 }
 
 #[derive(Message, Debug)]
@@ -147,20 +154,17 @@ fn deal_rounds(
     let Some(level) = blueprint.levels.get(index) else {
       continue;
     };
-    let mut opponent_hand = level.opponent.clone();
-    opponent_hand.cards.resize(level.turns, None);
     commands.entity(*game).insert((
       Round {
         level: index,
         target: level.target,
         turn: 0,
-        turns: level.turns,
         outcome: None,
       },
       CauldronCard::default(),
     ));
     commands.entity(*player).insert(level.player.clone());
-    commands.entity(*opponent).insert(opponent_hand);
+    commands.entity(*opponent).insert(level.opponent.clone());
     dealt.write(RoundDealt { game: *game });
   }
 }
@@ -171,6 +175,7 @@ fn process_player_turn(
   mut player_hands: Query<&mut PlayerCardHand>,
   opponent_hands: Query<&OpponentCardHand>,
   mut thrown: MessageWriter<CardPlayed>,
+  mut turns_ended: MessageWriter<TurnEnded>,
   mut ended: MessageWriter<RoundEnded>,
 ) {
   for StartPlayerTurn { game, card } in turns.read() {
@@ -194,35 +199,57 @@ fn process_player_turn(
     if round.outcome.is_some() || card.is_some_and(|x| x >= player_hand.cards.len()) {
       continue;
     }
-    let player_throw = card.map(|x| (*player, x, player_hand.cards.remove(x)));
-    let opponent_throw = opponent_hand
-      .cards
-      .get(round.turn)
-      .copied()
-      .flatten()
-      .map(|x| (*opponent, round.turn, x));
-    for (hand, card, item) in player_throw.into_iter().chain(opponent_throw) {
+    let rules = &blueprint.rules;
+    let player_throw = card.map(|x| (x, player_hand.cards.remove(x)));
+    for hand in [*player, *opponent] {
       if round.outcome.is_some() {
         break;
       }
-      let cauldron_item = blueprint.rules.combine(cauldron.0, item);
+      let throw = if hand == *player {
+        player_throw
+      } else if cauldron.0.and_then(|x| rules.effect(x)) == Some(AlchemyEffect::Freeze) {
+        None
+      } else {
+        let turn = round.turn;
+        round.turn += 1;
+        opponent_hand
+          .cards
+          .get(turn)
+          .copied()
+          .flatten()
+          .map(|x| (turn, x))
+      };
+      let Some((card, item)) = throw else {
+        continue;
+      };
+      let before = cauldron.0;
+      let cauldron_item = rules.combine(before, item);
       cauldron.0 = Some(cauldron_item);
+      let mut drawn = None;
       if cauldron_item == round.target {
         round.outcome = Some(RoundOutcome::TargetReached);
+      } else {
+        match rules.effect(cauldron_item) {
+          Some(AlchemyEffect::Explode) => round.outcome = Some(RoundOutcome::Exploded),
+          Some(AlchemyEffect::Draw) if before != Some(cauldron_item) => {
+            drawn = (!player_hand.deck.is_empty()).then(|| player_hand.deck.remove(0));
+            player_hand.cards.extend(drawn);
+          }
+          _ => {}
+        }
       }
       thrown.write(CardPlayed {
         game: *game,
         hand,
         card,
         cauldron_item,
+        drawn,
       });
     }
-    if round.outcome.is_none() {
-      round.turn += 1;
-      if round.turn >= round.turns {
-        round.outcome = Some(RoundOutcome::OutOfTurns);
-      }
+    if round.outcome.is_none() && player_hand.cards.is_empty() {
+      round.outcome = Some(RoundOutcome::OutOfCards);
     }
+    turns_ended.write(TurnEnded { game: *game });
     if let Some(outcome) = round.outcome {
       ended.write(RoundEnded {
         game: *game,

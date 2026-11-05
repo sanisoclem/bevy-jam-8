@@ -22,13 +22,32 @@ pub fn fluid_plugin(app: &mut App) {
 pub struct CauldronFluid {
   pub color: Color,
   pub icon: Option<u32>,
+  pub previous_color: Color,
+  pub previous_icon: Option<u32>,
+  pub splash_secs: f32,
+}
+
+impl CauldronFluid {
+  pub fn splash(&mut self, color: Color, icon: Option<u32>, secs: f32) {
+    *self = Self {
+      color,
+      icon,
+      previous_color: self.color,
+      previous_icon: self.icon,
+      splash_secs: secs,
+    };
+  }
 }
 
 impl Default for CauldronFluid {
   fn default() -> Self {
+    let color = Color::srgb(0.2, 0.42, 0.25);
     Self {
-      color: Color::srgb(0.2, 0.42, 0.25),
+      color,
       icon: None,
+      previous_color: color,
+      previous_icon: None,
+      splash_secs: -1000.0,
     }
   }
 }
@@ -36,16 +55,22 @@ impl Default for CauldronFluid {
 #[derive(ShaderType, Clone, Copy, Debug)]
 struct GpuFluid {
   color: LinearRgba,
+  previous_color: LinearRgba,
   icon: f32,
-  _webgl2_padding: Vec3,
+  previous_icon: f32,
+  splash_secs: f32,
+  _webgl2_padding: f32,
 }
 
 impl From<CauldronFluid> for GpuFluid {
   fn from(fluid: CauldronFluid) -> Self {
     Self {
       color: fluid.color.into(),
+      previous_color: fluid.previous_color.into(),
       icon: fluid.icon.map_or(-1.0, |x| x as f32),
-      _webgl2_padding: Vec3::ZERO,
+      previous_icon: fluid.previous_icon.map_or(-1.0, |x| x as f32),
+      splash_secs: fluid.splash_secs,
+      _webgl2_padding: 0.0,
     }
   }
 }

@@ -31,11 +31,19 @@ pub struct AlchemyRecipe {
   pub result: String,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AlchemyEffect {
+  Freeze,
+  Explode, //gameover
+  Draw,
+}
+
 #[derive(Clone, Debug)]
 pub struct AlchemyRuleBook {
   pub item_types: Vec<String>,
   pub colors: Vec<(String, u8)>,
   pub recipes: Vec<AlchemyRecipe>,
+  pub effects: Vec<(String, AlchemyEffect)>,
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -44,6 +52,7 @@ pub struct AlchemyRules {
   colors: Vec<(String, u8)>,
   recipes: HashMap<(AlchemyItemType, AlchemyItemType), AlchemyItemType>,
   items: Vec<AlchemyItem>,
+  effects: HashMap<AlchemyItem, AlchemyEffect>,
 }
 
 #[derive(Debug)]
@@ -98,12 +107,18 @@ impl AlchemyRuleBook {
         })
       })
       .collect();
-    Ok(AlchemyRules {
+    let mut rules = AlchemyRules {
       item_types: self.item_types,
       colors: self.colors,
       recipes,
       items,
-    })
+      effects: HashMap::default(),
+    };
+    for (name, effect) in self.effects {
+      let item = rules.item(&name)?;
+      rules.effects.insert(item, effect);
+    }
+    Ok(rules)
   }
 }
 
@@ -129,6 +144,10 @@ impl AlchemyRules {
       })
       .copied()
       .ok_or_else(|| AlchemyRulesError::UnknownItem(name.into()))
+  }
+
+  pub fn effect(&self, item: AlchemyItem) -> Option<AlchemyEffect> {
+    self.effects.get(&item).copied()
   }
 
   pub fn combine(&self, cauldron_item: Option<AlchemyItem>, item: AlchemyItem) -> AlchemyItem {

@@ -1,0 +1,41 @@
+(
+    item_types: [
+        (name: "Heart", icon: 0),
+        (name: "Dynamite", icon: 1),
+        (name: "Rock", icon: 2),
+        (name: "Ice", icon: 3),
+        (name: "Strength", icon: 4),
+        (name: "Bird", icon: 5),
+    ],
+    colors: [
+        (name: "Red", light: 1, rgb: (0.925, 0.231, 0.188)),
+        (name: "Green", light: 2, rgb: (0.106, 0.424, 0.122)),
+        (name: "Yellow", light: 3, rgb: (1.0, 0.835, 0.18)),
+    ],
+    recipes: [
+        ("Heart", "Dynamite", "Rock"),
+        ("Heart", "Rock", "Ice"),
+        ("Heart", "Ice", "Strength"),
+        ("Heart", "Strength", "Bird"),
+        ("Heart", "Bird", "Dynamite"),
+        ("Dynamite", "Rock", "Strength"),
+        ("Dynamite", "Ice", "Bird"),
+        ("Dynamite", "Strength", "Heart"),
+        ("Dynamite", "Bird", "Ice"),
+        ("Rock", "Ice", "Dynamite"),
+        ("Rock", "Strength", "Heart"),
+        ("Rock", "Bird", "Dynamite"),
+        ("Ice", "Strength", "Rock"),
+        ("Ice", "Bird", "Strength"),
+        ("Strength", "Bird", "Ice"),
+    ],
+    levels: [
+        (
+            turns: 4,
+            visible_turns: 2,
+            hand: ["Red Heart", "Green Rock", "Yellow Bird", "Red Ice", "Green Strength"],
+            opponent: [Some("Green Dynamite"), Some("Red Bird"), None, Some("Green Ice")],
+            target: "Yellow Dynamite",
+        ),
+    ],
+)

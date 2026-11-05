@@ -5,12 +5,27 @@ use bevy::prelude::*;
 pub struct Game {
   pub player: Entity,
   pub opponent: Entity,
+  pub blueprint: GameBlueprint,
+}
+
+#[derive(Resource, Clone, Debug)]
+pub struct GameBlueprint {
   pub rules: AlchemyRules,
+  pub levels: Vec<AlchemyLevel>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AlchemyLevel {
+  pub turns: usize,
+  pub visible_turns: usize,
+  pub player: PlayerCardHand,
+  pub opponent: OpponentCardHand,
+  pub target: AlchemyItem,
 }
 
 #[derive(Component, Clone, Copy, Debug)]
 pub struct Round {
-  pub number: usize,
+  pub level: usize,
   pub target: AlchemyItem,
   pub turn: usize,
   pub turns: usize,

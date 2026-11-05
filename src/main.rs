@@ -16,6 +16,7 @@ pub fn main_wasm() {
 fn main() {
   let gym = match std::env::args().nth(1).as_deref() {
     Some("look_around") => Gym::LookAround,
+    Some("card_edge") => Gym::CardEdge,
     _ => Gym::Main,
   };
 

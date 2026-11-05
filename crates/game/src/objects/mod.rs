@@ -8,6 +8,7 @@ use sys_asset::SysAssetPlugin;
 mod cauldron;
 mod coals;
 mod fire;
+mod fluid;
 mod ground;
 mod pot_glow;
 mod sky;
@@ -15,6 +16,7 @@ mod snow;
 
 pub use cauldron::CauldronAssets;
 pub use fire::{Blaze, FireSettings};
+pub use fluid::CauldronFluid;
 pub use ground::{BANDS_PER_LEG, LEG_COUNT, ShadowWaves};
 pub use pot_glow::PotGlow;
 pub use sky::{SkyMotion, SkySettings, WorldLight};
@@ -37,6 +39,7 @@ impl Plugin for ObjectsPlugin {
       SysAssetPlugin::<CauldronAssets>::default(),
       coals::coals_plugin,
       fire::fire_plugin,
+      fluid::fluid_plugin,
       ground::ground_plugin,
       pot_glow::pot_glow_plugin,
       sky::sky_plugin,
@@ -49,6 +52,7 @@ pub fn spawner(world: &mut World) -> Result {
   world.run_system_cached::<(), _, _>(sky::spawn)?;
   world.run_system_cached(ground::make_ground)?;
   world.run_system_cached(cauldron::spawner)?;
+  world.run_system_cached(fluid::spawn)?;
   world.run_system_cached::<(), _, _>(coals::spawn)?;
   world.run_system_cached(fire::spawner)?;
   world.run_system_cached(pot_glow::spawner)?;

@@ -10,8 +10,8 @@ mod orbit;
 mod walk;
 
 pub use look::LookAroundCamera;
-pub use orbit::OrbitCamera;
-pub use walk::{CameraPose, WalkCamera};
+pub use orbit::{CameraOrbit, OrbitCamera};
+pub use walk::{CameraPose, CameraWalk, WalkCamera};
 
 pub struct SysCamPlugin;
 

@@ -10,6 +10,7 @@ bevy = { workspace = true, features = [
   "tonemapping_luts",
   "zstd_rust",
 ] }
+fastrand.workspace = true
 ron.workspace = true
 serde.workspace = true
 

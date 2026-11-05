@@ -30,7 +30,7 @@ pub struct WalkCamera {
 }
 
 #[derive(Component, Debug)]
-struct CameraWalk {
+pub struct CameraWalk {
   from: Transform,
   to: Transform,
   timer: Timer,

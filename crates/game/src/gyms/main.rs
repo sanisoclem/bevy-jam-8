@@ -37,7 +37,7 @@ pub enum GameState {
 
 mod splash {
   use bevy::prelude::*;
-  use jam8::prelude::AlchemyRules;
+  use jam8::prelude::GameBlueprint;
   use sys_asset::{AssetLoaded, LoadAssets};
   use sys_audio::GameAudioAssets;
 
@@ -91,11 +91,11 @@ mod splash {
   fn countdown(
     qry: Query<&mut OnSplashScreen>,
     settings: Option<Res<MenuSettings>>,
-    rules: Option<Res<AlchemyRules>>,
+    blueprint: Option<Res<GameBlueprint>>,
     time: Res<Time>,
     mut game_state: ResMut<NextState<GameState>>,
   ) {
-    let files_loaded = settings.is_some() && rules.is_some();
+    let files_loaded = settings.is_some() && blueprint.is_some();
     for mut splash in qry {
       if !splash.timer.is_finished() {
         splash.timer.tick(time.delta());
@@ -128,7 +128,7 @@ mod menu {
     ui::Pressed,
     ui_widgets::{Activate, Button},
   };
-  use jam8::prelude::{AlchemyRules, GameStarted, StartGame};
+  use jam8::prelude::{GameBlueprint, GameStarted, StartGame};
   use std::time::Duration;
   use sys_audio::{GameAudioChannels, GameAudioCommand, GameAudioLibrary, Speed};
   use sys_cam::OrbitCamera;
@@ -142,10 +142,10 @@ mod menu {
         OnEnter(GameState::Menu),
         (objects::spawner, main_menu_setup),
       )
+      .add_systems(Update, update_button_colors)
       .add_systems(
         Update,
         (
-          update_button_colors,
           leave_menu.run_if(on_message::<GameStarted>),
           play_menu_music,
         )
@@ -245,8 +245,7 @@ mod menu {
   fn on_menu_button_activated(
     activate: On<Activate>,
     actions: Query<&MenuButtonAction>,
-    rules: Res<AlchemyRules>,
-    time: Res<Time<Real>>,
+    blueprint: Res<GameBlueprint>,
     mut commands: Commands,
     mut start_game: MessageWriter<StartGame>,
   ) {
@@ -261,8 +260,7 @@ mod menu {
     match action {
       MenuButtonAction::Play => {
         start_game.write(StartGame {
-          seed: time.elapsed().as_nanos() as u64,
-          rules: rules.clone(),
+          blueprint: blueprint.clone(),
         });
       }
     }

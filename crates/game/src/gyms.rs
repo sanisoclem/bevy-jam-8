@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+pub mod card_edge;
 pub mod look_around;
 pub mod main;
 
@@ -8,6 +9,7 @@ pub enum Gym {
   #[default]
   Main,
   LookAround,
+  CardEdge,
 }
 
 impl Plugin for Gym {
@@ -15,6 +17,7 @@ impl Plugin for Gym {
     match self {
       Gym::Main => app.add_plugins(main::MainGymPlugin),
       Gym::LookAround => app.add_plugins(look_around::LookAroundGymPlugin),
+      Gym::CardEdge => app.add_plugins(card_edge::CardEdgeGymPlugin),
     };
   }
 }

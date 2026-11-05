@@ -1,189 +1,134 @@
 use bevy::{
-  camera::RenderTarget,
-  color::Luminance,
-  core_pipeline::tonemapping::Tonemapping,
   ecs::system::{EntityCommands, SystemParam},
-  math::Affine2,
+  light::{NotShadowCaster, NotShadowReceiver},
+  pbr::{ExtendedMaterial, MaterialExtension},
   prelude::*,
-  render::render_resource::TextureFormat,
-  ui::UiTargetCamera,
+  render::render_resource::{AsBindGroup, ShaderType},
+  shader::ShaderRef,
+  ui_render::ui_material::{MaterialNode, UiMaterial},
 };
+use std::f32::consts::TAU;
 
-const COLUMNS: u32 = 4;
-const ROWS: u32 = 6;
-const CELL: UVec2 = UVec2::new(192, 256);
-const ATLAS: UVec2 = UVec2::new(CELL.x * COLUMNS, CELL.y * ROWS);
+const FRAME_VARIANTS: u32 = 4;
+
+pub type CardMaterial = ExtendedMaterial<StandardMaterial, CardPaint>;
 
 #[derive(Component, Debug)]
-pub struct Card {
-  cell: usize,
+pub struct Card;
+
+#[derive(Component, Debug)]
+pub struct CardPose {
+  pub tilt: Quat,
+  pub phase: f32,
 }
 
 #[derive(Resource)]
 pub struct CardAtlas {
-  mesh: Handle<Mesh>,
-  cells: Vec<AtlasCell>,
+  pub mesh: Handle<Mesh>,
+  pub sheet: Handle<Image>,
 }
 
-struct AtlasCell {
-  root: Entity,
-  label: Entity,
-  material: Handle<StandardMaterial>,
-  used: bool,
-}
-
+#[derive(Clone, Copy, Debug)]
 pub struct CardFace {
-  text: String,
-  shade: Color,
+  pub shade: Color,
+  pub icon: u32,
 }
 
 impl CardFace {
-  pub fn new(text: impl Into<String>, shade: Color) -> Self {
-    Self {
-      text: text.into(),
-      shade,
+  fn uniform(self) -> GpuCardFace {
+    GpuCardFace {
+      panel: self.shade.into(),
+      icon: self.icon as f32,
+      outer_frame: fastrand::u32(0..FRAME_VARIANTS) as f32,
+      inner_frame: fastrand::u32(0..FRAME_VARIANTS) as f32,
+      _webgl2_padding: 0.0,
     }
   }
 }
 
-impl CardAtlas {
-  pub fn new(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    images: &mut Assets<Image>,
-    materials: &mut Assets<StandardMaterial>,
-  ) -> Self {
-    // HACK: for now, generate textures by rendering text to a camera
-    // TODO: replacing it with my magnificent infitity paint art
-    let texture = Image::new_target_texture(ATLAS.x, ATLAS.y, TextureFormat::Rgba8UnormSrgb, None);
-    let image = images.add(texture);
-    let camera = commands
-      .spawn((
-        Camera2d,
-        Camera {
-          order: -1,
-          ..default()
-        },
-        RenderTarget::from(image.clone()),
-        Tonemapping::None,
-        Msaa::Off,
-      ))
-      .id();
-    let board = commands
-      .spawn((
-        Node {
-          width: px(ATLAS.x as f32),
-          height: px(ATLAS.y as f32),
-          ..default()
-        },
-        UiTargetCamera(camera),
-      ))
-      .id();
-    let cells = (0..COLUMNS * ROWS)
-      .map(|x| {
-        let corner = UVec2::new(x % COLUMNS, x / COLUMNS) * CELL;
-        let root = commands
-          .spawn((
-            Node {
-              position_type: PositionType::Absolute,
-              left: px(corner.x as f32),
-              top: px(corner.y as f32),
-              width: px(CELL.x as f32),
-              height: px(CELL.y as f32),
-              justify_content: JustifyContent::Center,
-              align_items: AlignItems::Center,
-              ..default()
-            },
-            ChildOf(board),
-          ))
-          .id();
-        let label = commands
-          .spawn((
-            Text::default(),
-            TextFont {
-              font_size: FontSize::Px(34.0),
-              ..default()
-            },
-            TextLayout {
-              justify: Justify::Center,
-              ..default()
-            },
-            ChildOf(root),
-          ))
-          .id();
-        let bleed_margin = Vec2::ONE;
-        let material = materials.add(StandardMaterial {
-          base_color_texture: Some(image.clone()),
-          uv_transform: Affine2::from_scale_angle_translation(
-            (CELL.as_vec2() - 2.0 * bleed_margin) / ATLAS.as_vec2(),
-            0.0,
-            (corner.as_vec2() + bleed_margin) / ATLAS.as_vec2(),
-          ),
-          unlit: true,
-          ..default()
-        });
-        AtlasCell {
-          root,
-          label,
-          material,
-          used: false,
-        }
-      })
-      .collect();
-    Self {
-      mesh: meshes.add(Rectangle::new(0.75, 1.0)),
-      cells,
-    }
+#[derive(ShaderType, Clone, Copy, Debug)]
+struct GpuCardFace {
+  panel: LinearRgba,
+  icon: f32,
+  outer_frame: f32,
+  inner_frame: f32,
+  _webgl2_padding: f32,
+}
+
+#[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
+pub struct CardPaint {
+  #[uniform(100)]
+  face: GpuCardFace,
+  #[texture(101)]
+  #[sampler(102)]
+  sheet: Handle<Image>,
+}
+
+impl MaterialExtension for CardPaint {
+  fn fragment_shader() -> ShaderRef {
+    "shaders/card.wesl".into()
+  }
+}
+
+#[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
+pub struct CardHudMaterial {
+  #[uniform(0)]
+  face: GpuCardFace,
+  #[texture(1)]
+  #[sampler(2)]
+  sheet: Handle<Image>,
+}
+
+impl UiMaterial for CardHudMaterial {
+  fn fragment_shader() -> ShaderRef {
+    "shaders/card_hud.wesl".into()
   }
 }
 
 #[derive(SystemParam)]
 pub struct CardMaker<'w, 's> {
   pub commands: Commands<'w, 's>,
-  atlas: ResMut<'w, CardAtlas>,
+  atlas: Res<'w, CardAtlas>,
+  materials: ResMut<'w, Assets<CardMaterial>>,
+  hud_materials: ResMut<'w, Assets<CardHudMaterial>>,
 }
 
 impl CardMaker<'_, '_> {
-  pub fn spawn(&mut self, face: CardFace, place: Transform) -> EntityCommands<'_> {
-    let cell = self
-      .atlas
-      .cells
-      .iter()
-      .position(|x| !x.used)
-      .expect("no space");
-    self.atlas.cells[cell].used = true;
-    let card = Card { cell };
-    self.relabel(&card, face);
-    let mesh = self.atlas.mesh.clone();
-    let material = self.atlas.cells[cell].material.clone();
-    self
-      .commands
-      .spawn((card, Mesh3d(mesh), MeshMaterial3d(material), place))
+  pub fn spawn(&mut self, face: CardFace) -> EntityCommands<'_> {
+    let material = self.materials.add(CardMaterial {
+      base: StandardMaterial {
+        perceptual_roughness: 0.92,
+        reflectance: 0.25,
+        diffuse_transmission: 0.35,
+        double_sided: true,
+        cull_mode: None,
+        alpha_mode: AlphaMode::Blend,
+        ..default()
+      },
+      extension: CardPaint {
+        face: face.uniform(),
+        sheet: self.atlas.sheet.clone(),
+      },
+    });
+    let jitter = || (fastrand::f32() - 0.5) * 0.08;
+    self.commands.spawn((
+      Card,
+      CardPose {
+        tilt: Quat::from_euler(EulerRot::XYZ, jitter(), jitter(), jitter()),
+        phase: fastrand::f32() * TAU,
+      },
+      Mesh3d(self.atlas.mesh.clone()),
+      MeshMaterial3d(material),
+      NotShadowCaster,
+      NotShadowReceiver,
+      Visibility::Hidden,
+    ))
   }
 
-  pub fn relabel(&mut self, card: &Card, face: CardFace) {
-    let (root, label) = (
-      self.atlas.cells[card.cell].root,
-      self.atlas.cells[card.cell].label,
-    );
-    let ink = if face.shade.luminance() > 0.45 {
-      Color::BLACK
-    } else {
-      Color::WHITE
-    };
-    self
-      .commands
-      .entity(root)
-      .insert(BackgroundColor(face.shade));
-    self
-      .commands
-      .entity(label)
-      .insert((Text::new(face.text), TextColor(ink)));
-  }
-
-  pub fn despawn(&mut self, entity: Entity, card: &Card) {
-    self.commands.entity(entity).despawn();
-    self.atlas.cells[card.cell].used = false;
-    self.relabel(card, CardFace::new("", Color::NONE));
+  pub fn hud(&mut self, face: CardFace) -> MaterialNode<CardHudMaterial> {
+    MaterialNode(self.hud_materials.add(CardHudMaterial {
+      face: face.uniform(),
+      sheet: self.atlas.sheet.clone(),
+    }))
   }
 }

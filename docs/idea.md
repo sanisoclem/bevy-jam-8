@@ -1,3 +1,15 @@
+pending:
+
+- sat - polish and publish
+- fri - puzzle/level design
+- thu - level selector, dialog engine
+
+optional:
+
+- save data
+- card animations
+- particles effects
+
 Theme: Alchemy
 
 What worked well last jam:

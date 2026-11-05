@@ -3,6 +3,12 @@ use bevy::{platform::collections::HashMap, prelude::*};
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct AlchemyItemType(usize);
 
+impl AlchemyItemType {
+  pub fn index(self) -> usize {
+    self.0
+  }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct AlchemyColor(usize);
 
@@ -46,6 +52,7 @@ pub enum AlchemyRulesError {
   NoColors,
   InvalidColorCombination(AlchemyColor, AlchemyColor),
   UnknownItemType(String),
+  UnknownItem(String),
 }
 
 impl AlchemyRuleBook {
@@ -109,8 +116,19 @@ impl AlchemyRules {
     &self.colors[color.0].0
   }
 
-  pub(crate) fn items(&self) -> &[AlchemyItem] {
-    &self.items
+  pub fn item(&self, name: &str) -> Result<AlchemyItem, AlchemyRulesError> {
+    self
+      .items
+      .iter()
+      .find(|x| {
+        format!(
+          "{} {}",
+          self.color_name(x.color),
+          self.item_type_name(x.item_type)
+        ) == name
+      })
+      .copied()
+      .ok_or_else(|| AlchemyRulesError::UnknownItem(name.into()))
   }
 
   pub fn combine(&self, cauldron_item: Option<AlchemyItem>, item: AlchemyItem) -> AlchemyItem {

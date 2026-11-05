@@ -1,4 +1,3 @@
-mod dealer;
 mod game;
 pub mod plugin;
 mod rules;

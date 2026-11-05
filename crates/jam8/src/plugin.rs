@@ -1,7 +1,8 @@
 use crate::{
-  dealer::Dealer,
-  game::{CauldronCard, Game, OpponentCardHand, PlayerCardHand, Round, RoundOutcome},
-  rules::{AlchemyItem, AlchemyRules},
+  game::{
+    CauldronCard, Game, GameBlueprint, OpponentCardHand, PlayerCardHand, Round, RoundOutcome,
+  },
+  rules::AlchemyItem,
 };
 use bevy::prelude::*;
 
@@ -32,8 +33,7 @@ pub struct SimSystems;
 
 #[derive(Message, Debug)]
 pub struct StartGame {
-  pub seed: u64,
-  pub rules: AlchemyRules,
+  pub blueprint: GameBlueprint,
 }
 
 #[derive(Message, Debug)]
@@ -82,9 +82,9 @@ fn start_games(
   mut deals: MessageWriter<DealRound>,
   mut commands: Commands,
 ) {
-  for StartGame { seed, rules } in starts.read() {
+  for StartGame { blueprint } in starts.read() {
     let game = commands
-      .spawn((Name::new("Game"), Dealer(*seed), CauldronCard::default()))
+      .spawn((Name::new("Game"), CauldronCard::default()))
       .id();
     let player = commands
       .spawn((
@@ -103,7 +103,7 @@ fn start_games(
     commands.entity(game).insert(Game {
       player,
       opponent,
-      rules: rules.clone(),
+      blueprint: blueprint.clone(),
     });
     started.write(GameStarted { game });
     deals.write(DealRound { game });
@@ -118,7 +118,7 @@ fn stop_games(mut stops: MessageReader<StopGame>, mut commands: Commands) {
 
 fn deal_rounds(
   mut deals: MessageReader<DealRound>,
-  mut games: Query<(&Game, &mut Dealer, Option<&Round>)>,
+  games: Query<(&Game, Option<&Round>)>,
   mut dealt: MessageWriter<RoundDealt>,
   mut commands: Commands,
 ) {
@@ -127,26 +127,39 @@ fn deal_rounds(
       Game {
         player,
         opponent,
-        rules,
+        blueprint,
       },
-      mut dealer,
       round,
-    )) = games.get_mut(*game)
+    )) = games.get(*game)
     else {
       continue;
     };
-    let (player_hand, opponent_hand, target) = dealer.deal(rules);
+    let next = match round {
+      None => 0,
+      Some(x) if x.outcome == Some(RoundOutcome::TargetReached) => x.level + 1,
+      Some(x) => x.level,
+    };
+    let index = if next < blueprint.levels.len() {
+      next
+    } else {
+      0
+    };
+    let Some(level) = blueprint.levels.get(index) else {
+      continue;
+    };
+    let mut opponent_hand = level.opponent.clone();
+    opponent_hand.cards.resize(level.turns, None);
     commands.entity(*game).insert((
       Round {
-        number: round.map_or(1, |x| x.number + 1),
-        target,
+        level: index,
+        target: level.target,
         turn: 0,
-        turns: opponent_hand.cards.len(),
+        turns: level.turns,
         outcome: None,
       },
       CauldronCard::default(),
     ));
-    commands.entity(*player).insert(player_hand);
+    commands.entity(*player).insert(level.player.clone());
     commands.entity(*opponent).insert(opponent_hand);
     dealt.write(RoundDealt { game: *game });
   }
@@ -165,7 +178,7 @@ fn process_player_turn(
       Game {
         player,
         opponent,
-        rules,
+        blueprint,
       },
       mut round,
       mut cauldron,
@@ -192,7 +205,7 @@ fn process_player_turn(
       if round.outcome.is_some() {
         break;
       }
-      let cauldron_item = rules.combine(cauldron.0, item);
+      let cauldron_item = blueprint.rules.combine(cauldron.0, item);
       cauldron.0 = Some(cauldron_item);
       if cauldron_item == round.target {
         round.outcome = Some(RoundOutcome::TargetReached);
@@ -206,7 +219,7 @@ fn process_player_turn(
     }
     if round.outcome.is_none() {
       round.turn += 1;
-      if round.turn == round.turns {
+      if round.turn >= round.turns {
         round.outcome = Some(RoundOutcome::OutOfTurns);
       }
     }

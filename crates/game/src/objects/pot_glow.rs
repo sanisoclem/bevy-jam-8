@@ -20,6 +20,7 @@ pub fn pot_glow_plugin(app: &mut App) {
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct PotGlow {
   pub target: f32,
+  pub strength: f32,
 }
 
 #[derive(ShaderType, Clone, Copy, Debug, Default)]
@@ -71,13 +72,14 @@ pub fn spawner(
 }
 
 fn update_glow(
-  pot_glow: Res<PotGlow>,
+  mut pot_glow: ResMut<PotGlow>,
   time: Res<Time>,
   glows: Query<&MeshMaterial3d<GlowMaterial>>,
   mut materials: ResMut<Assets<GlowMaterial>>,
 ) {
   let catch_up = 1.0 - (-time.delta_secs() / 4.0).exp();
+  pot_glow.strength += (pot_glow.target - pot_glow.strength) * catch_up;
   update_materials(glows, &mut materials, |x| {
-    x.glow.strength += (pot_glow.target - x.glow.strength) * catch_up;
+    x.glow.strength = pot_glow.strength;
   });
 }

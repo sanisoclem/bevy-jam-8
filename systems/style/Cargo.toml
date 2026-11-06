@@ -6,3 +6,7 @@ edition = "2024"
 [dependencies]
 bevy = { workspace = true, features = ["3d"] }
 serde.workspace = true
+
+[package.metadata.wgsl-analyzer]
+edition = "2026_pre"
+root = "src"

@@ -85,6 +85,18 @@ impl UiMaterial for CardHudMaterial {
   }
 }
 
+pub fn paper() -> StandardMaterial {
+  StandardMaterial {
+    perceptual_roughness: 0.92,
+    reflectance: 0.25,
+    diffuse_transmission: 0.35,
+    double_sided: true,
+    cull_mode: None,
+    alpha_mode: AlphaMode::Blend,
+    ..default()
+  }
+}
+
 #[derive(SystemParam)]
 pub struct CardMaker<'w, 's> {
   pub commands: Commands<'w, 's>,
@@ -96,15 +108,7 @@ pub struct CardMaker<'w, 's> {
 impl CardMaker<'_, '_> {
   pub fn spawn(&mut self, face: CardFace) -> EntityCommands<'_> {
     let material = self.materials.add(CardMaterial {
-      base: StandardMaterial {
-        perceptual_roughness: 0.92,
-        reflectance: 0.25,
-        diffuse_transmission: 0.35,
-        double_sided: true,
-        cull_mode: None,
-        alpha_mode: AlphaMode::Blend,
-        ..default()
-      },
+      base: paper(),
       extension: CardPaint {
         face: face.uniform(),
         sheet: self.atlas.sheet.clone(),

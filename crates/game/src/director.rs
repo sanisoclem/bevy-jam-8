@@ -3,7 +3,7 @@ use crate::{
   objects::CauldronFluid,
   table::{
     AlchemyPalette, CARD_ASPECT, CardMaker, CardPlace, CardSlot, HUD_MARGIN_VH, Overlay,
-    TARGET_HUD_VH, TableHud, TableScript, TableView, TargetHud,
+    RecipeNote, TARGET_HUD_VH, TableHud, TableScript, TableView, TargetHud,
   },
 };
 use bevy::{
@@ -19,7 +19,7 @@ use sys_cam::{CameraOrbit, CameraWalk, PlayerCamera};
 // all coordination work (non music) goes here
 pub fn director_plugin(app: &mut App) {
   app
-    .add_systems(Update, read_keys.before(SimSystems))
+    .add_systems(Update, (read_keys, skip).before(SimSystems))
     .add_systems(
       Update,
       (react, direct)
@@ -80,12 +80,15 @@ fn on_director_added(
     .extend(script.intro.iter().cloned().map(DirectorStep::Say));
   director.steps.push_back(DirectorStep::Begin);
 
-  commands.spawn((
-    TableView::default(),
-    Transform::default(),
-    Visibility::default(),
-    ChildOf(*camera),
-  ));
+  let view = commands
+    .spawn((
+      TableView::default(),
+      Transform::default(),
+      Visibility::default(),
+      ChildOf(*camera),
+    ))
+    .id();
+  commands.spawn((RecipeNote::default(), ChildOf(view)));
 
   // used to hide the scene
   commands.spawn((
@@ -139,6 +142,7 @@ fn on_director_added(
     children![
       (
         TargetHud::default(),
+        Hovered::default(),
         Node {
           position_type: PositionType::Absolute,
           top: Val::Vh(HUD_MARGIN_VH),
@@ -376,6 +380,7 @@ fn direct(
             .get(round.level)
             .map_or(0, |x| x.visible_turns),
           frozen: false,
+          settled: false,
         };
         let face = palette.face(round.target);
         let target = maker.hud(face);
@@ -438,7 +443,7 @@ fn direct(
               .insert((Pickable::default(), Hovered::default()))
               .observe(on_card_clicked);
           } else {
-            card.insert(Pickable::IGNORE);
+            card.insert((Pickable::IGNORE, Hovered::default()));
           }
         }
         director.steps.push_front(step);
@@ -498,10 +503,9 @@ fn direct(
   director.idle = director.steps.is_empty()
     && texts.is_empty()
     && round.is_some_and(|(_, x)| x.outcome.is_none());
-  let player = round.map(|(x, _)| x.player);
+  view.settled = director.idle;
   for (_, slot, place, mut pickable) in &mut cards {
-    let hoverable =
-      director.idle && *place == CardPlace::Row && slot.is_some_and(|x| Some(x.hand) == player);
+    let hoverable = director.idle && *place == CardPlace::Row && slot.is_some();
     if pickable.is_hoverable != hoverable {
       pickable.is_hoverable = hoverable;
     }
@@ -533,6 +537,31 @@ fn read_keys(
     turns.write(StartPlayerTurn { game, card });
     director.idle = false;
   }
+}
+
+fn skip(mouse: Res<ButtonInput<MouseButton>>, director: Single<&mut Director>) {
+  if !mouse.just_pressed(MouseButton::Left) {
+    return;
+  }
+  let mut director = director.into_inner();
+  let end = director
+    .steps
+    .iter()
+    .position(|x| {
+      !matches!(
+        x,
+        DirectorStep::Wait(_)
+          | DirectorStep::Sink(_)
+          | DirectorStep::Deal
+          | DirectorStep::Advance { .. }
+      )
+    })
+    .unwrap_or(director.steps.len());
+  let rest = director.steps.split_off(end);
+  director
+    .steps
+    .retain(|x| !matches!(x, DirectorStep::Wait(_)));
+  director.steps.extend(rest);
 }
 
 fn on_card_clicked(

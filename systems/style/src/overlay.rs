@@ -4,6 +4,7 @@ use bevy::{
   camera::{Camera3dDepthLoadOp, CameraUpdateSystems, Hdr, visibility::RenderLayers},
   core_pipeline::tonemapping::{DebandDither, Tonemapping},
   ecs::system::EntityCommands,
+  post_process::bloom::{Bloom, BloomCompositeMode, BloomPrefilter},
   prelude::*,
 };
 
@@ -42,6 +43,15 @@ fn on_screen_style_added(added: On<Add<ScreenStyle>>, mut commands: Commands) {
     },
     Tonemapping::None,
     DebandDither::Disabled,
+    Bloom {
+      prefilter: BloomPrefilter {
+        threshold: 2.0,
+        threshold_softness: 0.0,
+      },
+      composite_mode: BloomCompositeMode::Additive,
+      intensity: 0.3,
+      ..Bloom::OLD_SCHOOL
+    },
     RenderLayers::layer(UNSTYLED_LAYER),
     ChildOf(added.entity),
   ));

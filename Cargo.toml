@@ -19,6 +19,10 @@ dev = [
   "bevy/embedded_watcher",
 ]
 
+[package.metadata.wgsl-analyzer]
+edition = "2026_pre"
+root = "assets/shaders"
+
 [workspace]
 members = ["crates/*", "systems/*"]
 

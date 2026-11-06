@@ -150,20 +150,23 @@ impl AlchemyRules {
     self.effects.get(&item).copied()
   }
 
-  pub fn combine(&self, cauldron_item: Option<AlchemyItem>, item: AlchemyItem) -> AlchemyItem {
-    let Some(cauldron_item) = cauldron_item else {
-      return item;
-    };
-    let (first, second) = (cauldron_item.item_type, item.item_type);
-    let item_type = if first == second {
+  pub fn combine_types(&self, first: AlchemyItemType, second: AlchemyItemType) -> AlchemyItemType {
+    if first == second {
       first
     } else {
       self
         .recipes
         .get(&(first, second))
-        .cloned()
+        .copied()
         .unwrap_or(first.max(second))
+    }
+  }
+
+  pub fn combine(&self, cauldron_item: Option<AlchemyItem>, item: AlchemyItem) -> AlchemyItem {
+    let Some(cauldron_item) = cauldron_item else {
+      return item;
     };
+    let item_type = self.combine_types(cauldron_item.item_type, item.item_type);
     let mixed = self.colors[cauldron_item.color.0].1 | self.colors[item.color.0].1;
     let color = self
       .colors

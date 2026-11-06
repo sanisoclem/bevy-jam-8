@@ -8,6 +8,7 @@ use bevy::{
 use blueprint_file::{BLUEPRINT_PATH, GameBlueprintFile, GameBlueprintHandle, load_blueprint};
 use card::{CardAtlas, CardHudMaterial, CardMaterial, CardPose};
 use jam8::prelude::*;
+use note::{NoteMaterial, on_note_added, update_note};
 use std::f32::consts::PI;
 use sys_anim::AnimateTo;
 use sys_cam::PlayerCamera;
@@ -15,13 +16,16 @@ use sys_style::Lens;
 
 mod blueprint_file;
 mod card;
+mod note;
 
 pub use blueprint_file::{AlchemyPalette, TableScript};
 pub use card::{Card, CardFace, CardMaker};
+pub use note::RecipeNote;
 
 pub const CARD_ASPECT: f32 = 422.0 / 586.0;
 pub const HUD_MARGIN_VH: f32 = 3.0;
 pub const TARGET_HUD_VH: f32 = 22.0;
+const TABLE_DEPTH: f32 = 0.6;
 
 // TODO: move to game settings
 const HAND_ROW: CardRow = CardRow {
@@ -44,14 +48,21 @@ pub fn table_plugin(app: &mut App) {
     .add_plugins((
       MeshPickingPlugin,
       MaterialPlugin::<CardMaterial>::default(),
+      MaterialPlugin::<NoteMaterial>::default(),
       UiMaterialPlugin::<CardHudMaterial>::default(),
       ron_asset_plugin::<GameBlueprintFile>,
     ))
     .add_systems(Startup, setup)
     .add_systems(
       Update,
-      (load_blueprint.before(SimSystems), update_cards, update_hud),
-    );
+      (
+        load_blueprint.before(SimSystems),
+        update_cards,
+        update_hud,
+        update_note.run_if(resource_exists::<AlchemyPalette>),
+      ),
+    )
+    .add_observer(on_note_added);
 }
 
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
@@ -75,6 +86,7 @@ pub struct TableView {
   pub turn: usize,
   pub visible_turns: usize,
   pub frozen: bool,
+  pub settled: bool,
 }
 
 #[derive(Component, Debug)]
@@ -307,10 +319,9 @@ fn update_cards(
     return;
   };
   let (view, mut view_transform) = view.into_inner();
-  let depth = 0.6;
-  let screen_height = 2.0 * depth * (perspective.fov / 2.0).tan();
+  let screen_height = 2.0 * TABLE_DEPTH * (perspective.fov / 2.0).tan();
   view_transform.translation =
-    Vec3::new(-lens.shake.x, lens.shake.y, 0.0) * screen_height - Vec3::Z * depth;
+    Vec3::new(-lens.shake.x, lens.shake.y, 0.0) * screen_height - Vec3::Z * TABLE_DEPTH;
   let pot = camera_transform
     .affine()
     .inverse()

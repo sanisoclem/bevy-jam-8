@@ -50,7 +50,7 @@
             target: "Yellow Rock",
         ),
         (
-            goal: "Sometimes the glyph doesn't change happens",
+            goal: "Sometimes the glyph doesn't change",
             hand: ["Green Bird", "Purple Rock", "Black Ice", "Red Heart"],
             target: "White Strength",
         ),

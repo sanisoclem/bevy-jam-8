@@ -6,7 +6,7 @@ struct CardFace {
     icon: f32,
     outer_frame: f32,
     inner_frame: f32,
-    _webgl2_padding: f32,
+    frost: f32,
 }
 
 fn card_mask(sheet: texture_2d<f32>, sheet_sampler: sampler, face: CardFace, uv: vec2<f32>) -> f32 {

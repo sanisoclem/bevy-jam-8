@@ -41,7 +41,7 @@ impl CardFace {
       icon: self.icon as f32,
       outer_frame: fastrand::u32(0..FRAME_VARIANTS) as f32,
       inner_frame: fastrand::u32(0..FRAME_VARIANTS) as f32,
-      _webgl2_padding: 0.0,
+      frost: 0.0,
     }
   }
 }
@@ -52,7 +52,7 @@ struct GpuCardFace {
   icon: f32,
   outer_frame: f32,
   inner_frame: f32,
-  _webgl2_padding: f32,
+  frost: f32,
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
@@ -62,6 +62,16 @@ pub struct CardPaint {
   #[texture(101)]
   #[sampler(102)]
   sheet: Handle<Image>,
+}
+
+impl CardPaint {
+  pub fn frost(&self) -> f32 {
+    self.face.frost
+  }
+
+  pub fn set_frost(&mut self, frost: f32) {
+    self.face.frost = frost;
+  }
 }
 
 impl MaterialExtension for CardPaint {

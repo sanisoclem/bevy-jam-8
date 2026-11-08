@@ -34,10 +34,10 @@ pub fn director_plugin(app: &mut App) {
 #[derive(Component, Debug, Default)]
 pub struct Director {
   game: Option<Entity>,
-  level: Option<usize>,
   steps: VecDeque<DirectorStep>,
   elapsed: f32,
   idle: bool,
+  frozen: bool,
 }
 
 #[derive(Debug)]
@@ -56,6 +56,7 @@ enum DirectorStep {
   Advance { turn: usize, frozen: bool },
   Clear,
   Redeal,
+  Finish(String),
 }
 
 #[derive(Component, Debug)]
@@ -188,6 +189,7 @@ fn react(
   mut turns: MessageReader<TurnEnded>,
   mut ended: MessageReader<RoundEnded>,
   games: Query<(&Game, &Round, &CauldronCard)>,
+  opponent_hands: Query<&OpponentCardHand>,
   script: Res<TableScript>,
   director: Single<&mut Director>,
 ) {
@@ -202,11 +204,10 @@ fn react(
     let Ok((_, round, _)) = games.get(*game) else {
       continue;
     };
-    let fresh = director.level != Some(round.level);
-    director.level = Some(round.level);
+    director.frozen = false;
     director.steps.clear();
     director.steps.extend([SetTable, Fade(0.0), Wait(0.4)]);
-    if fresh && let Some(level) = script.levels.get(round.level) {
+    if let Some(level) = script.levels.get(round.level) {
       director.steps.extend(level.lines.iter().cloned().map(Say));
       director.steps.extend([
         Showcase,
@@ -238,18 +239,37 @@ fn react(
       Wait(1.1),
     ]);
     if drawn.is_some() {
-      director.steps.extend([Deal, Wait(0.4)]);
+      director
+        .steps
+        .extend([Deal, Wait(0.4), Say(script.card_drawn.clone())]);
     }
   }
 
   for TurnEnded { game } in turns.read() {
-    let Ok((Game { blueprint, .. }, round, cauldron)) = games.get(*game) else {
+    let Ok((
+      Game {
+        opponent,
+        blueprint,
+        ..
+      },
+      round,
+      cauldron,
+    )) = games.get(*game)
+    else {
       continue;
     };
+    let frozen = cauldron.0.and_then(|x| blueprint.rules.effect(x)) == Some(AlchemyEffect::Freeze);
     director.steps.push_back(Advance {
       turn: round.turn,
-      frozen: cauldron.0.and_then(|x| blueprint.rules.effect(x)) == Some(AlchemyEffect::Freeze),
+      frozen,
     });
+    let waiting = opponent_hands
+      .get(*opponent)
+      .is_ok_and(|x| x.cards.iter().skip(round.turn).any(Option::is_some));
+    if frozen && !director.frozen && waiting && round.outcome.is_none() {
+      director.steps.push_back(Say(script.frozen.clone()));
+    }
+    director.frozen = frozen;
   }
 
   for RoundEnded { game, outcome } in ended.read() {
@@ -264,11 +284,14 @@ fn react(
         Showcase,
         Wait(0.6),
         Say(script.won.clone()),
+        Fade(1.0),
+        Wait(1.2),
       ]);
       if round.level + 1 == blueprint.levels.len() {
-        director.steps.push_back(Say(script.finished.clone()));
+        director.steps.push_back(Finish(script.finished.clone()));
+      } else {
+        director.steps.push_back(Redeal);
       }
-      director.steps.extend([Fade(1.0), Wait(1.2), Redeal]);
     } else {
       let line = if *outcome == RoundOutcome::Exploded {
         &script.exploded
@@ -492,6 +515,27 @@ fn direct(
         if let Some(game) = director.game {
           deals.write(DealRound { game });
         }
+      }
+      DirectorStep::Finish(text) => {
+        maker.commands.spawn((
+          Node {
+            width: percent(100),
+            height: percent(100),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+          },
+          BackgroundColor(Color::BLACK),
+          GlobalZIndex(2),
+          children![(
+            Text::new(text),
+            TextFont {
+              font_size: FontSize::Vh(6.0),
+              ..default()
+            },
+            TextColor(Color::srgb(0.9, 0.9, 0.9)),
+          )],
+        ));
       }
     }
     director.elapsed = 0.0;

@@ -307,12 +307,14 @@ fn update_cards(
       Option<&CardSlot>,
       &CardPose,
       Option<&Hovered>,
+      &MeshMaterial3d<CardMaterial>,
       &mut AnimateTo,
       &mut Transform,
       &mut Visibility,
     ),
     Without<TableView>,
   >,
+  mut materials: ResMut<Assets<CardMaterial>>,
 ) {
   let (projection, lens, camera_transform) = *camera;
   let Projection::Perspective(perspective) = projection else {
@@ -339,18 +341,30 @@ fn update_cards(
     .count();
 
   let secs = time.elapsed_secs();
-  for (place, slot, pose, hovered, mut animate, mut transform, mut visibility) in &mut cards {
+  let delta = time.delta_secs();
+  for (place, slot, pose, hovered, material, mut animate, mut transform, mut visibility) in
+    &mut cards
+  {
     let row = if mine(slot) { &HAND_ROW } else { &OPPONENT_ROW };
     let (column, count) = match slot {
       Some(x) if mine(slot) => (x.card as f32, hand_size as f32),
       Some(x) => (x.card as f32 - view.turn as f32, view.visible_turns as f32),
       None => (0.0, 1.0),
     };
+    let frozen = view.frozen && *place == CardPlace::Row && !mine(slot);
+    let mut frost = 0.0;
+    if let Some(mut paint) = materials.get_mut(&material.0) {
+      frost = paint.extension.frost();
+      let next = frost + (f32::from(frozen) - frost).clamp(-delta * 2.0, delta * 1.2);
+      if next != frost {
+        paint.extension.set_frost(next);
+      }
+    }
     let from_middle = column - (count - 1.0) / 2.0;
-    let bob = 0.004 * (secs * 1.1 + pose.phase).sin();
+    let bob = 0.004 * (1.0 - frost) * (secs * 1.1 + pose.phase).sin();
     let arc = from_middle * from_middle * row.fan * 0.3;
     let fan = Quat::from_rotation_z(-from_middle * row.fan);
-    let sway = Quat::from_rotation_z(0.025 * (secs * 0.8 + pose.phase * 1.7).sin());
+    let sway = Quat::from_rotation_z(0.025 * (1.0 - frost) * (secs * 0.8 + pose.phase * 1.7).sin());
     let in_row = Transform {
       translation: Vec3::new(from_middle * row.spacing, row.y - arc + bob, 0.0) * screen_height,
       rotation: fan * Quat::from_rotation_x(-row.lean) * pose.tilt * sway,
@@ -363,14 +377,6 @@ fn update_cards(
       CardPlace::Row if !mine(slot) && column >= count => {
         (in_row.with_translation(in_row.translation + off_edge), 0.07)
       }
-      CardPlace::Row if !mine(slot) && view.frozen => (
-        Transform {
-          translation: in_row.translation + Vec3::Y * 0.06 * screen_height,
-          rotation: in_row.rotation * Quat::from_rotation_x(-0.6),
-          ..in_row
-        },
-        0.12,
-      ),
       CardPlace::Row if hovered => (
         Transform {
           translation: in_row.translation + Vec3::new(0.0, 0.04, 0.12) * screen_height,

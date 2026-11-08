@@ -33,6 +33,8 @@ pub struct TableScript {
   pub finished: String,
   pub out_of_cards: String,
   pub exploded: String,
+  pub frozen: String,
+  pub card_drawn: String,
   #[serde(skip)]
   pub levels: Vec<LevelScript>,
 }
